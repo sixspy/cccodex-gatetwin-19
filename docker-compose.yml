@@ -1,0 +1,14 @@
+name: gatetwin
+services:
+  app:
+    build: ./backend
+    container_name: 14-gatetwin-gatetwin-19
+    ports: ["8619:11500"]
+    volumes:
+      - gatetwin_data:/data
+      - ./fixtures:/fixtures:ro
+    environment:
+      数据目录: /data
+      夹具目录: /fixtures
+volumes:
+  gatetwin_data:

@@ -5,6 +5,7 @@ import 刷卡流 from "./pages/刷卡流.jsx";
 import 开腿账 from "./pages/开腿账.jsx";
 import 行程账 from "./pages/行程账.jsx";
 import 旁路匣 from "./pages/旁路匣.jsx";
+import 补录闸 from "./pages/补录闸.jsx";
 import 行程贯验 from "./pages/行程贯验.jsx";
 import 站规 from "./pages/站规.jsx";
 import 线路站 from "./pages/线路站.jsx";
@@ -15,6 +16,7 @@ const 主链 = [
   ["/开腿账", "② 开腿账"],
   ["/行程账", "③ 行程账"],
   ["/旁路匣", "④ 旁路匣"],
+  ["/补录闸", "补录闸"],
   ["/行程贯验", "行程贯验"],
 ];
 const 次链 = [["/站规", "站规"], ["/线路站", "线路站"]];
@@ -47,6 +49,7 @@ export default function App() {
           <Route path="/开腿账" element={<开腿账 />} />
           <Route path="/行程账" element={<行程账 />} />
           <Route path="/旁路匣" element={<旁路匣 />} />
+          <Route path="/补录闸" element={<补录闸 />} />
           <Route path="/行程贯验" element={<行程贯验 />} />
           <Route path="/站规" element={<站规 />} />
           <Route path="/线路站" element={<线路站 />} />

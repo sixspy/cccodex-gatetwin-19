@@ -1,3 +1,4 @@
+import sqlite3
 from datetime import datetime, timezone
 
 from app.db import 连接
@@ -62,7 +63,31 @@ CREATE TABLE IF NOT EXISTS 旁路匣 (
   卡号 TEXT NOT NULL DEFAULT '',
   事件编号 TEXT NOT NULL DEFAULT '',
   载荷 TEXT NOT NULL,
+  时刻 TEXT NOT NULL,
+  状态 TEXT NOT NULL DEFAULT '开'
+);
+CREATE TABLE IF NOT EXISTS 补录闸 (
+  编号 INTEGER PRIMARY KEY AUTOINCREMENT,
+  闸态 TEXT NOT NULL,
+  原因 TEXT NOT NULL DEFAULT '',
   时刻 TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS 补录账 (
+  编号 INTEGER PRIMARY KEY AUTOINCREMENT,
+  时刻 TEXT NOT NULL,
+  请求编号 TEXT NOT NULL DEFAULT '',
+  闸态 TEXT NOT NULL,
+  旁路编号 INTEGER NOT NULL DEFAULT 0,
+  卡号 TEXT NOT NULL DEFAULT '',
+  出站事件编号 TEXT NOT NULL DEFAULT '',
+  补录站点键 TEXT NOT NULL DEFAULT '',
+  虚进事件编号 TEXT NOT NULL DEFAULT '',
+  开腿键 TEXT NOT NULL DEFAULT '',
+  行程键 TEXT NOT NULL DEFAULT '',
+  结果 TEXT NOT NULL,
+  拒绝原因 TEXT NOT NULL DEFAULT '',
+  审计口径 TEXT NOT NULL DEFAULT 'manual_stop',
+  载荷 TEXT NOT NULL DEFAULT '{}'
 );
 CREATE TABLE IF NOT EXISTS 行程贯验 (
   编号 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,9 +106,28 @@ def 此刻() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _补列(conn, 表: str, 列: str, 定义: str) -> None:
+    """给既有库补列（CREATE TABLE IF NOT EXISTS 不会改老表）。"""
+    try:
+        现有 = {r["name"] for r in conn.execute(f"PRAGMA table_info({表})")}
+    except sqlite3.Error:
+        return
+    if 列 not in 现有:
+        conn.execute(f"ALTER TABLE {表} ADD COLUMN {列} {定义}")
+
+
+def _迁移升级(conn) -> None:
+    _补列(conn, "旁路匣", "状态", "TEXT NOT NULL DEFAULT '开'")
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS 补录账_已补录_请求号 "
+        "ON 补录账(请求编号) WHERE 结果='已成对' AND 请求编号<>''"
+    )
+
+
 def 初始化库() -> None:
     conn = 连接()
     conn.executescript(建表)
+    _迁移升级(conn)
     if conn.execute("SELECT COUNT(*) AS c FROM 站规").fetchone()["c"] == 0:
         for k, v in {
             "站名": "闸对",
@@ -103,5 +147,14 @@ def 初始化库() -> None:
                 "INSERT INTO 站点(站点键, 线路键, 站名, 站序) VALUES (?,?,?,?)",
                 (k, "线1", n, i),
             )
+    if conn.execute("SELECT COUNT(*) AS c FROM 补录闸").fetchone()["c"] == 0:
+        conn.execute(
+            "INSERT INTO 补录闸(闸态, 原因, 时刻) VALUES ('关', '默认闸关', ?)", (此刻(),)
+        )
+    if not conn.execute("SELECT 1 FROM 站规 WHERE 键='补录口径'").fetchone():
+        conn.execute(
+            "INSERT INTO 站规(键, 值) VALUES (?, ?)",
+            ("补录口径", "manual_stop：须请求体指定补录进站站且权威可解，缺参/未知站拒绝，禁止自动首站"),
+        )
     conn.commit()
     conn.close()

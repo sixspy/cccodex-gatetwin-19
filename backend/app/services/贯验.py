@@ -43,6 +43,36 @@ def 跑贯验() -> dict:
         if 开腿刷 != 开腿数:
             问题.append(f"已开腿刷卡{开腿刷} ≠ 在途开腿{开腿数}")
 
+        # 旁路匣 ↔ 刷卡命运互证：已补录旁路不得再有开着的孤儿出站。
+        for b in conn.execute(
+            "SELECT * FROM 旁路匣 WHERE 原因='出站孤儿' AND 状态='已补录'"
+        ).fetchall():
+            刷 = conn.execute(
+                "SELECT * FROM 刷卡点 WHERE 事件编号=?", (b["事件编号"],)
+            ).fetchone()
+            if not 刷:
+                问题.append(f"已补录旁路#{b['编号']}缺出站刷卡点")
+            elif 刷["命运"] != "已成对":
+                问题.append(f"已补录旁路#{b['编号']}出站刷卡命运非已成对（{刷['命运']}）")
+        for b in conn.execute(
+            "SELECT * FROM 旁路匣 WHERE 原因='出站孤儿' AND 状态='开'"
+        ).fetchall():
+            刷 = conn.execute(
+                "SELECT * FROM 刷卡点 WHERE 事件编号=?", (b["事件编号"],)
+            ).fetchone()
+            if 刷 and 刷["命运"] == "已成对":
+                问题.append(f"开着孤儿旁路#{b['编号']}出站刷卡却已成对")
+
+        # 补录账 ↔ 行程互证：审计为已成对者必有真实行程。
+        for a in conn.execute("SELECT * FROM 补录账 WHERE 结果='已成对'").fetchall():
+            行 = conn.execute(
+                "SELECT 1 FROM 行程账 WHERE 行程键=? AND 状态='已成对'", (a["行程键"],)
+            ).fetchone()
+            if not 行:
+                问题.append(f"补录账#{a['编号']}标记成对但行程缺失")
+            if a["审计口径"] != "manual_stop":
+                问题.append(f"补录账#{a['编号']}审计口径非 manual_stop（{a['审计口径']}）")
+
         通过 = 1 if not 问题 else 0
         说明 = "行程账与刷卡点互证通过" if 通过 else "；".join(问题)[:800]
         conn.execute(

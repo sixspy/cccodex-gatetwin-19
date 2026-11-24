@@ -24,7 +24,7 @@ export default function 闸台() {
       </div>
       <div className="提示条">
         冒烟：<Link to="/刷卡流">刷卡流</Link> 依次推成对 / 缺腿超时 / 出站孤儿 → 看开腿账与行程账 →{" "}
-        <Link to="/行程贯验">行程贯验</Link>。
+        <Link to="/补录闸">补录闸</Link> 对出站孤儿补录 → <Link to="/行程贯验">行程贯验</Link>。
       </div>
       <div className="行"><button className="次" onClick={刷}>刷新台面</button></div>
       {末 ? (

@@ -13,6 +13,18 @@ class 装载请求(BaseModel):
     事件: list = Field(default_factory=list)
 
 
+class 补录请求(BaseModel):
+    请求编号: str = ""
+    旁路编号: int | None = None
+    出站事件编号: str = ""
+    补录站点键: str = ""
+
+
+class 闸开关请求(BaseModel):
+    闸态: str
+    原因: str = ""
+
+
 @路由.get("/健康")
 def 健康():
     return {
@@ -144,6 +156,72 @@ def 列贯验():
         return [dict(r) for r in conn.execute("SELECT * FROM 行程贯验 ORDER BY 编号 DESC LIMIT 20")]
     finally:
         conn.close()
+
+
+@路由.get("/补录闸")
+def 读补录闸():
+    """只读：当前闸开关与口径。"""
+    from app.modules import 出站无进补录闸
+
+    conn = 连接()
+    try:
+        return 出站无进补录闸.读闸(conn)
+    finally:
+        conn.close()
+
+
+@路由.get("/补录闸/预演")
+def 预演补录(旁路编号: int | None = None, 出站事件编号: str = "", 补录站点键: str = ""):
+    """只读推演：闸开关、旁路编号、虚进站、行程或拒绝、valid。"""
+    from app.modules import 出站无进补录闸
+
+    conn = 连接()
+    try:
+        return 出站无进补录闸.预演(
+            conn,
+            旁路编号=旁路编号,
+            出站事件编号=出站事件编号,
+            补录站点键=补录站点键,
+        )
+    finally:
+        conn.close()
+
+
+@路由.post("/补录闸/开关")
+def 开补录闸(体: 闸开关请求):
+    from app.modules import 出站无进补录闸
+
+    结果 = 出站无进补录闸.开关闸(体.闸态, 体.原因)
+    if not 结果.get("ok"):
+        raise HTTPException(400, 结果.get("拒绝", "闸态非法"))
+    return 结果
+
+
+@路由.post("/补录闸/补录")
+def 做补录(体: 补录请求):
+    """经闸补录：被闸拒时返回 HTTP 409，并带 valid/拒绝 供前端呈现。"""
+    from app.modules import 出站无进补录闸
+
+    结果 = 出站无进补录闸.补录(体.model_dump())
+    if not 结果.get("ok"):
+        raise HTTPException(
+            409,
+            detail={
+                "valid": False,
+                "拒绝": 结果.get("拒绝") or "补录被拒",
+                "闸开关": 结果.get("闸开关"),
+                "旁路编号": 结果.get("旁路编号"),
+                "虚进站": 结果.get("虚进站", ""),
+            },
+        )
+    return 结果
+
+
+@路由.get("/补录账")
+def 列补录账():
+    from app.modules import 出站无进补录闸
+
+    return 出站无进补录闸.列补录账()
 
 
 @路由.get("/空桩")
